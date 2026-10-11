@@ -272,7 +272,7 @@ function openBooking(g) {
         haptic('success');
         showBooked(r);
         loadGames(); loadProfile();
-      } catch (err) { haptic('error'); toast(err.message); b.disabled = false; b.textContent = 'Забронировать'; }
+      } catch (err) { haptic('error'); if (/профиль/.test(err.message)) { closeSheet(); return showRegistration(); } toast(err.message); b.disabled = false; b.textContent = 'Забронировать'; }
     }
   };
   $('sheet-body').oninput = e => { if (e.target.id === 'pts') { f.points = +e.target.value; f.comment = $('cm').value; draw(); } };
@@ -326,7 +326,7 @@ function pickReceipt(bookingId, btn, done) {
       const { data, mime } = await readReceipt(file);
       await api('receipt', { bookingId, data, mime });
       haptic('success'); toast('Чек отправлен'); loadProfile(); done && done();
-    } catch (err) { haptic('error'); toast(err.message); btn.disabled = false; btn.textContent = label; }
+    } catch (err) { haptic('error'); if (/профиль/.test(err.message)) { closeSheet(); return showRegistration(); } toast(err.message); btn.disabled = false; btn.textContent = label; }
   };
   input.click();
 }
