@@ -254,7 +254,7 @@ function openBooking(g) {
       '<div class="field"><label for="cm">Комментарий для организаторов</label><textarea id="cm" maxlength="300" placeholder="Например, придём с другом">' + esc(f.comment) + '</textarea></div>' +
       '<div class="total"><span>К оплате</span><b>' + amount(sum, cur) + '</b></div>' +
       '<button class="cta" data-act="book" ' + (people ? '' : 'disabled') + '>' + (people ? 'Забронировать' : 'Укажите, кто придёт') + '</button>' +
-      '<p class="note" style="text-align:center;margin-top:10px">' + (f.pay === 'IDR наличные' ? 'Оплата наличными на месте.' : 'После брони покажем реквизиты и попросим загрузить чек.') + '</p>');
+      '<p class="note" style="text-align:center;margin-top:10px">' + (f.pay === 'IDR наличные' ? 'Оплата наличными на месте.' : 'После брони покажем реквизиты. Бронь принимается только с чеком об оплате.') + '</p>');
   }
 
   $('sheet-body').onclick = async e => {
@@ -288,7 +288,7 @@ function showBooked(r) {
     return;
   }
   $('sheet-body').innerHTML = head + '<h3>Осталось оплатить</h3><p class="meta">Бронь ' + esc(r.id) + ', к оплате <b style="color:var(--gold)">' +
-    amount(r.sum, r.cur) + '</b>. После оплаты загрузите чек, и мы подтвердим запись.</p></div>' +
+    amount(r.sum, r.cur) + '</b>. Бронь принимается только с чеком: после оплаты загрузите его, и место закрепится за вами.</p></div>' +
     (r.requisites ? '<div class="req"><small>Реквизиты</small>' + reqHtml(r.requisites) + '</div>' : '<p class="note">Реквизиты пришлёт администратор.</p>') +
     '<button class="cta" data-act="receipt">Загрузить чек</button>' +
     '<button class="cta ghost" data-act="close">Загружу позже</button>' +
@@ -377,8 +377,9 @@ function renderProfile() {
     (b.mix ? ' (' + esc(b.mix) + ')' : '') + (b.sum ? ', ' + amount(b.sum, b.cur || 'IDR') : '') + (b.points ? ', ' + b.points + ' ' + plural(b.points, 'балл', 'балла', 'баллов') : '') + '</div>' +
     (b.needReceipt && !b.receipt ? '<button class="link" data-receipt="' + esc(b.id) + '" style="margin-right:14px">Загрузить чек</button>' : '') +
     (b.needReceipt && b.receipt ? '<div class="check-ok">Чек отправлен, ждём подтверждения</div>' : '') +
+    (b.needReceipt && !b.receipt ? '<div class="s">Место не закреплено, пока нет чека</div>' : '') +
     (b.status === 'Ожидает' || b.status === 'Подтверждена' ? '<button class="link" data-cancel="' + esc(b.id) + '">Отменить бронь</button>' : '') +
-    '</div><span class="pill ' + (PILL[b.status] || '') + '">' + esc(b.status) + '</span></div>').join('')
+    '</div><span class="pill ' + (b.needReceipt && !b.receipt ? 'wait' : PILL[b.status] || '') + '">' + esc(b.needReceipt && !b.receipt ? 'Ждём чек' : b.status) + '</span></div>').join('')
     : '<p class="note">Броней пока нет. Выберите игру в афише.</p>';
   const history = p.history.length ? p.history.map(h =>
     '<div class="item"><div><div class="t">' + esc(h.reason) + '</div><div class="s">' + esc(h.date) + (h.game ? ', ' + esc(h.game) : '') + '</div></div>' +
