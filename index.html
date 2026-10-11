@@ -217,7 +217,7 @@ function renderGames() {
       '<div class="day"><b>' + fmt(g.ts, { day: 'numeric' }) + '</b><span>' + fmt(g.ts, { month: 'short' }).replace('.', '') + '<br>' + fmt(g.ts, { weekday: 'short' }) + '</span></div>' +
       '<div><div class="g-title">' + esc(g.title) + '</div>' +
       '<div class="g-meta">' + esc(g.format) + ', ' + esc(g.time) + (g.place ? ', ' + esc(g.place) : '') + '</div>' +
-      '<div class="g-row"><span class="seats' + (g.open || g.invite ? '' : ' out') + '">' + seats + '</span><span>' + (g.tiers ? 'от ' + amount(Math.min.apply(null, g.tiers.map(t => t.IDR).filter(Boolean)), 'IDR') : g.prices && g.prices.IDR.f ? 'от ' + amount(Math.min(g.prices.IDR.f, g.prices.IDR.m || g.prices.IDR.f), 'IDR') : '') + '</span></div></div></button>';
+      '<div class="g-row"><span class="seats' + (g.open || g.invite ? '' : ' out') + '">' + seats + '</span><span>' + (g.invite ? '' : g.tiers ? 'от ' + amount(Math.min.apply(null, g.tiers.map(t => t.IDR).filter(Boolean)), 'IDR') : g.prices && g.prices.IDR.f ? 'от ' + amount(Math.min(g.prices.IDR.f, g.prices.IDR.m || g.prices.IDR.f), 'IDR') : '') + '</span></div></div></button>';
   }).join('');
 }
 
