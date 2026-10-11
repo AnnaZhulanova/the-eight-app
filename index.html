@@ -122,6 +122,11 @@ textarea{width:100%;min-height:64px;background:rgba(2,26,22,.7);border:1px solid
 .inp{width:100%;background:rgba(2,26,22,.7);border:1px solid var(--line);border-radius:12px;color:var(--ivory);padding:12px 14px;font:inherit;font-size:16px;color-scheme:dark}
 .inp:focus{border-color:var(--gold-dim);outline:none}
 .inline-link{display:inline-block;margin-top:8px;color:var(--gold);font-size:13px;text-decoration:underline;text-underline-offset:3px}
+.plist{display:flex;flex-wrap:wrap;gap:8px}
+.pchip{display:flex;align-items:center;gap:7px;padding:4px 11px 4px 4px;border:1px solid var(--line);border-radius:999px;font-size:13.5px;background:rgba(2,26,22,.5)}
+.pchip.wait{border-style:dashed}
+.pav{width:26px;height:26px;border-radius:50%;object-fit:cover;flex:none;background:var(--surface-2);color:var(--gold);font-size:12px;display:flex;align-items:center;justify-content:center}
+.pchip em{font-style:normal;color:var(--muted);font-size:12px}
 .check-ok{color:#A8D9C7;font-size:13px;margin-top:6px}
 .done .emb{width:70px;margin:0 auto 14px;display:block}
 
@@ -181,8 +186,13 @@ const fmt = (ts, o) => new Intl.DateTimeFormat('ru-RU', Object.assign({ timeZone
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 3200); }
 
 async function api(action, data) {
-  const res = await fetch(API, { method: 'POST',
-    body: JSON.stringify(Object.assign({ action, initData: tg ? tg.initData : '' }, data || {})) });
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 25000);
+  let res;
+  try {
+    res = await fetch(API, { method: 'POST', signal: ctl.signal,
+      body: JSON.stringify(Object.assign({ action, initData: tg ? tg.initData : '' }, data || {})) });
+  } catch (e) { throw new Error('Нет связи с сервером. Проверьте интернет и попробуйте ещё раз'); }
+  finally { clearTimeout(timer); }
   const j = await res.json();
   if (!j.ok) throw new Error(j.error || 'Не удалось выполнить запрос');
   return j;
@@ -222,6 +232,8 @@ function openBooking(g) {
   const tiers = g.tiers;
   if (tiers) tiers.forEach((t, i) => { f['t' + i] = i === 0 ? 1 : 0; });
   const pays = tiers ? PAYS.filter(m => tiers.some(t => t[curOf(m[0])] > 0)) : PAYS;
+  let players = null, active = true;
+  api('players', { gameId: g.id }).then(r => { players = r.players; if (active) draw(); }).catch(() => { players = []; if (active) draw(); });
   const maxSeats = Math.min(g.left, 8);
   const pr = g.prices || { IDR: { f: 0, m: 0 }, USDT: { f: 0, m: 0 }, RUB: { f: 0, m: 0 } };
 
@@ -243,6 +255,7 @@ function openBooking(g) {
       '<h3>' + esc(g.title) + '</h3>' +
       '<p class="meta">' + fmt(g.ts, { weekday: 'long', day: 'numeric', month: 'long' }) + ', ' + esc(g.time) + (g.place ? '<br>' + esc(g.place) : '') + (g.host ? '<br>Ведущий: ' + esc(g.host) : '') + '</p>' +
       (g.desc ? '<p class="desc">' + esc(g.desc) + '</p>' : '') +
+      '<div class="field"><span class="lbl">Уже записались' + (players && players.length ? ': ' + playersCount(players) : '') + '</span>' + playersHtml(players) + '</div>' +
       (g.invite ? '<p class="note" style="margin-top:18px">Вход по приглашению.</p><button class="cta ghost" data-act="close">Закрыть</button>' :
        !g.open ? '<button class="cta ghost" data-act="close">Мест нет, закрыть</button>' :
       '<div class="field"><span class="lbl">Как будете платить</span><div class="seg seg-4">' +
@@ -262,7 +275,7 @@ function openBooking(g) {
     const cm = $('cm'); if (cm) f.comment = cm.value;
     if (b.dataset.pay) { tap(); f.pay = b.dataset.pay; draw(); return; }
     const a = b.dataset.act;
-    if (a === 'close') return closeSheet();
+    if (a === 'close') { active = false; return closeSheet(); }
     if (a === 'minus' || a === 'plus') { tap(); f[b.dataset.k] += a === 'plus' ? 1 : -1; draw(); return; }
     if (a === 'book') {
       f.comment = f.comment.trim();
@@ -270,6 +283,7 @@ function openBooking(g) {
       try {
         const r = await api('book', { gameId: g.id, girls: f.girls, guys: f.guys, tiers: tiers ? tiers.map((t, i) => f['t' + i]) : null, pay: f.pay, points: f.points, comment: f.comment });
         haptic('success');
+        active = false;
         showBooked(r);
         loadGames(); loadProfile();
       } catch (err) { haptic('error'); if (/профиль/.test(err.message)) { closeSheet(); return showRegistration(); } toast(err.message); b.disabled = false; b.textContent = 'Забронировать'; }
@@ -280,6 +294,32 @@ function openBooking(g) {
   document.body.classList.add('open');
   if (tg && tg.BackButton) { tg.BackButton.show(); tg.BackButton.onClick(closeSheet); }
 }
+function playersHtml(list) {
+  if (!list) return '<p class="note">Загружаем список…</p>';
+  if (!list.length) return '<p class="note">Пока никого. Станьте первым!</p>';
+  return '<div class="plist">' + list.map(p =>
+    '<span class="pchip' + (p.confirmed ? '' : ' wait') + '">' +
+    (p.photo ? '<img class="pav" alt="" src="' + esc(p.photo) + '">' : '<span class="pav">' + esc(p.nick.charAt(0).toUpperCase()) + '</span>') +
+    esc(p.nick) + (p.plus ? ' <em>+' + p.plus + '</em>' : '') + '</span>').join('') + '</div>';
+}
+function playersCount(list) { return list ? list.reduce((s, p) => s + 1 + p.plus, 0) : 0; }
+
+function openPlayers(gid, title) {
+  let list = null;
+  const draw = () => {
+    $('sheet-body').innerHTML = '<h3>' + esc(title) + '</h3><p class="meta">Участники' + (list ? ': ' + playersCount(list) : '') + '</p>' +
+      '<div class="field">' + playersHtml(list) + '</div>' +
+      (list && list.some(p => !p.confirmed) ? '<p class="note">Пунктиром отмечены брони, которые ещё подтверждаются.</p>' : '') +
+      '<button class="cta ghost" data-act="close">Закрыть</button>';
+  };
+  $('sheet-body').onclick = e => { if (e.target.closest('[data-act=close]')) closeSheet(); };
+  $('sheet-body').oninput = null;
+  draw();
+  document.body.classList.add('open');
+  if (tg && tg.BackButton) { tg.BackButton.show(); tg.BackButton.onClick(closeSheet); }
+  api('players', { gameId: gid }).then(r => { list = r.players; draw(); }).catch(err => { list = []; draw(); toast(err.message); });
+}
+
 function showBooked(r) {
   const head = '<div class="done"><img class="emb" alt="" src="' + $('p-emb').src + '">';
   if (!r.needReceipt) {
@@ -375,6 +415,7 @@ function renderProfile() {
   const bookings = p.bookings.length ? p.bookings.map(b =>
     '<div class="item"><div><div class="t">' + esc(b.game) + '</div><div class="s">' + b.seats + ' ' + plural(b.seats, 'место', 'места', 'мест') +
     (b.mix ? ' (' + esc(b.mix) + ')' : '') + (b.sum ? ', ' + amount(b.sum, b.cur || 'IDR') : '') + (b.points ? ', ' + b.points + ' ' + plural(b.points, 'балл', 'балла', 'баллов') : '') + '</div>' +
+    (b.gid && b.status !== 'Отменена' && b.status !== 'Отклонена' ? '<button class="link" data-players="' + esc(b.gid) + '" data-title="' + esc(b.game) + '" style="margin-right:14px">Участники</button>' : '') +
     (b.needReceipt && !b.receipt ? '<button class="link" data-receipt="' + esc(b.id) + '" style="margin-right:14px">Загрузить чек</button>' : '') +
     (b.needReceipt && b.receipt ? '<div class="check-ok">Чек отправлен, ждём подтверждения</div>' : '') +
     (b.needReceipt && !b.receipt ? '<div class="s">Место не закреплено, пока нет чека</div>' : '') +
@@ -395,6 +436,8 @@ function renderProfile() {
 }
 $('profile').addEventListener('click', e => {
   if (e.target.closest('[data-edit]')) return editProfile();
+  const pl = e.target.closest('[data-players]');
+  if (pl) return openPlayers(pl.dataset.players, pl.dataset.title);
   const rc = e.target.closest('[data-receipt]');
   if (rc) return pickReceipt(rc.dataset.receipt, rc);
   const b = e.target.closest('[data-cancel]'); if (!b) return;
