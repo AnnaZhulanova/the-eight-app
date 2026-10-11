@@ -206,7 +206,7 @@ function renderGames() {
       '<div class="day"><b>' + fmt(g.ts, { day: 'numeric' }) + '</b><span>' + fmt(g.ts, { month: 'short' }).replace('.', '') + '<br>' + fmt(g.ts, { weekday: 'short' }) + '</span></div>' +
       '<div><div class="g-title">' + esc(g.title) + '</div>' +
       '<div class="g-meta">' + esc(g.format) + ', ' + esc(g.time) + (g.place ? ', ' + esc(g.place) : '') + '</div>' +
-      '<div class="g-row"><span class="seats' + (g.open || g.invite ? '' : ' out') + '">' + seats + '</span><span>' + (g.prices && g.prices.IDR.f ? 'от ' + amount(Math.min(g.prices.IDR.f, g.prices.IDR.m || g.prices.IDR.f), 'IDR') : '') + '</span></div></div></button>';
+      '<div class="g-row"><span class="seats' + (g.open || g.invite ? '' : ' out') + '">' + seats + '</span><span>' + (g.tiers ? 'от ' + amount(Math.min.apply(null, g.tiers.map(t => t.IDR).filter(Boolean)), 'IDR') : g.prices && g.prices.IDR.f ? 'от ' + amount(Math.min(g.prices.IDR.f, g.prices.IDR.m || g.prices.IDR.f), 'IDR') : '') + '</span></div></div></button>';
   }).join('');
 }
 
@@ -219,18 +219,22 @@ function openBooking(g) {
   if (state.profile && !state.profile.registered) return showRegistration();
   const p = state.profile || { balance: 0, pointRate: 0, gender: '' };
   const f = { girls: p.gender === 'Девушка' ? 1 : 0, guys: p.gender === 'Парень' ? 1 : 0, pay: 'IDR перевод', points: 0, comment: '' };
+  const tiers = g.tiers;
+  if (tiers) tiers.forEach((t, i) => { f['t' + i] = i === 0 ? 1 : 0; });
+  const pays = tiers ? PAYS.filter(m => tiers.some(t => t[curOf(m[0])] > 0)) : PAYS;
   const maxSeats = Math.min(g.left, 8);
   const pr = g.prices || { IDR: { f: 0, m: 0 }, USDT: { f: 0, m: 0 }, RUB: { f: 0, m: 0 } };
 
   const stepper = (key, label, price) =>
     '<div class="field"><span class="lbl">' + label + (price ? ', ' + amount(price, curOf(f.pay)) : '') + '</span><div class="stepper">' +
     '<button data-act="minus" data-k="' + key + '" aria-label="Меньше" ' + (f[key] <= 0 ? 'disabled' : '') + '>−</button><output>' + f[key] + '</output>' +
-    '<button data-act="plus" data-k="' + key + '" aria-label="Больше" ' + (f.girls + f.guys >= maxSeats ? 'disabled' : '') + '>+</button></div></div>';
+    '<button data-act="plus" data-k="' + key + '" aria-label="Больше" ' + (count() >= maxSeats ? 'disabled' : '') + '>+</button></div></div>';
+  const count = () => tiers ? tiers.reduce((s, t, i) => s + f['t' + i], 0) : f.girls + f.guys;
 
   function draw() {
     const cur = curOf(f.pay), c = pr[cur];
-    const people = f.girls + f.guys;
-    const total = f.girls * c.f + f.guys * c.m;
+    const people = count();
+    const total = tiers ? tiers.reduce((s, t, i) => s + f['t' + i] * t[cur], 0) : f.girls * c.f + f.guys * c.m;
     const canPoints = cur === 'IDR' && g.pointsAllowed && p.pointRate > 0 && p.balance > 0;
     const maxPts = canPoints ? Math.min(p.balance, Math.ceil(total / p.pointRate)) : 0;
     f.points = Math.min(f.points, maxPts);
@@ -242,8 +246,8 @@ function openBooking(g) {
       (g.invite ? '<p class="note" style="margin-top:18px">Вход по приглашению.</p><button class="cta ghost" data-act="close">Закрыть</button>' :
        !g.open ? '<button class="cta ghost" data-act="close">Мест нет, закрыть</button>' :
       '<div class="field"><span class="lbl">Как будете платить</span><div class="seg seg-4">' +
-        PAYS.map(m => '<button data-pay="' + m[0] + '" aria-pressed="' + (f.pay === m[0]) + '">' + m[1] + '</button>').join('') + '</div></div>' +
-      stepper('girls', 'Девушки', c.f) + stepper('guys', 'Парни', c.m) +
+        pays.map(m => '<button data-pay="' + m[0] + '" aria-pressed="' + (f.pay === m[0]) + '">' + m[1] + '</button>').join('') + '</div></div>' +
+      (tiers ? tiers.map((t, i) => stepper('t' + i, esc(t.name), t[cur])).join('') : stepper('girls', 'Девушки', c.f) + stepper('guys', 'Парни', c.m)) +
       (canPoints ? '<div class="field"><label for="pts">Оплатить баллами: ' + f.points + ' из ' + p.balance + '</label>' +
         '<input id="pts" type="range" min="0" max="' + maxPts + '" step="1" value="' + f.points + '"><p class="note">1 балл = ' + money(p.pointRate) + ' IDR</p></div>'
         : (g.pointsAllowed && p.balance > 0 && cur !== 'IDR' ? '<p class="note" style="margin-top:18px">Баллами можно оплатить только в IDR.</p>' : '')) +
@@ -264,7 +268,7 @@ function openBooking(g) {
       f.comment = f.comment.trim();
       b.disabled = true; b.textContent = 'Отправляем…';
       try {
-        const r = await api('book', { gameId: g.id, girls: f.girls, guys: f.guys, pay: f.pay, points: f.points, comment: f.comment });
+        const r = await api('book', { gameId: g.id, girls: f.girls, guys: f.guys, tiers: tiers ? tiers.map((t, i) => f['t' + i]) : null, pay: f.pay, points: f.points, comment: f.comment });
         haptic('success');
         showBooked(r);
         loadGames(); loadProfile();
