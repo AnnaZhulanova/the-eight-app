@@ -201,7 +201,7 @@ async function api(action, data) {
 
 /* ---------- афиша ---------- */
 async function loadGames() {
-  try { state.games = (await api('games')).games; renderGames(); }
+  try { const r = await api('games'); state.games = r.games; state.requisites = r.requisites || {}; renderGames(); }
   catch (e) { $('games').innerHTML = '<div class="empty"><strong>Афиша не загрузилась</strong>' + esc(e.message) + '</div>'; }
 }
 
@@ -244,7 +244,32 @@ function openBooking(g) {
     '<button data-act="plus" data-k="' + key + '" aria-label="Больше" ' + (count() >= maxSeats ? 'disabled' : '') + '>+</button></div></div>';
   const count = () => tiers ? tiers.reduce((s, t, i) => s + f['t' + i], 0) : f.girls + f.guys;
 
+  let step = 'form';
+  function drawPay() {
+    const req = (state.requisites || {})[f.cur] || '';
+    $('sheet-body').innerHTML =
+      '<h3>Оплата</h3>' +
+      '<p class="meta">' + esc(g.title) + ', ' + fmt(g.ts, { day: 'numeric', month: 'long' }) + ', ' + esc(g.time) + '</p>' +
+      '<div class="total" style="margin-top:16px"><span>К оплате</span><b>' + amount(f.sum, f.cur) + '</b></div>' +
+      (req ? '<div class="req"><small>Реквизиты</small>' + reqHtml(req) + '</div>' : '<p class="note">Реквизиты для этой валюты уточните у администратора.</p>') +
+      '<p class="note" style="margin-top:14px">Оплатите по реквизитам и загрузите чек: скриншот перевода или PDF. Бронь создаётся только вместе с чеком, после этого мы проверим оплату и подтвердим место.</p>' +
+      '<button class="cta" data-act="payupload">Загрузить чек и забронировать</button>' +
+      '<button class="cta ghost" data-act="back">Назад к брони</button>';
+    $('sheet').scrollTop = 0;
+  }
+  async function submit(receipt, btn, label) {
+    f.comment = f.comment.trim();
+    btn.disabled = true; btn.textContent = 'Отправляем…';
+    try {
+      const r = await api('book', { gameId: g.id, girls: f.girls, guys: f.guys, tiers: tiers ? tiers.map((t, i) => f['t' + i]) : null, pay: f.pay, points: f.points, comment: f.comment, receipt });
+      haptic('success');
+      active = false;
+      showBooked(r);
+      loadGames(); loadProfile();
+    } catch (err) { haptic('error'); if (/профиль/.test(err.message)) { closeSheet(); return showRegistration(); } toast(err.message); btn.disabled = false; btn.textContent = label; }
+  }
   function draw() {
+    if (step === 'pay') return drawPay();
     const cur = curOf(f.pay), c = pr[cur];
     const people = count();
     const total = tiers ? tiers.reduce((s, t, i) => s + f['t' + i] * t[cur], 0) : f.girls * c.f + f.guys * c.m;
@@ -252,6 +277,8 @@ function openBooking(g) {
     const maxPts = canPoints ? Math.min(p.balance, Math.ceil(total / p.pointRate)) : 0;
     f.points = Math.min(f.points, maxPts);
     const sum = Math.max(total - (cur === 'IDR' ? f.points * p.pointRate : 0), 0);
+    const needR = sum > 0 && f.pay !== 'IDR наличные';
+    f.sum = sum; f.cur = cur;
     $('sheet-body').innerHTML =
       '<h3>' + esc(g.title) + '</h3>' +
       '<p class="meta">' + fmt(g.ts, { weekday: 'long', day: 'numeric', month: 'long' }) + ', ' + esc(g.time) + (g.place ? '<br><button class="maplink" data-map="' + esc(g.place) + '">📍 ' + esc(g.place) + '</button>' : '') + (g.host ? '<br>Ведущий: ' + esc(g.host) : '') + '</p>' +
@@ -267,8 +294,8 @@ function openBooking(g) {
         : (g.pointsAllowed && p.balance > 0 && cur !== 'IDR' ? '<p class="note" style="margin-top:18px">Баллами можно оплатить только в IDR.</p>' : '')) +
       '<div class="field"><label for="cm">Комментарий для организаторов</label><textarea id="cm" maxlength="300" placeholder="Например, придём с другом">' + esc(f.comment) + '</textarea></div>' +
       '<div class="total"><span>К оплате</span><b>' + amount(sum, cur) + '</b></div>' +
-      '<button class="cta" data-act="book" ' + (people ? '' : 'disabled') + '>' + (people ? 'Забронировать' : 'Укажите, кто придёт') + '</button>' +
-      '<p class="note" style="text-align:center;margin-top:10px">' + (f.pay === 'IDR наличные' ? 'Оплата наличными на месте.' : 'После брони покажем реквизиты. Бронь принимается только с чеком об оплате.') + '</p>');
+      '<button class="cta" data-act="' + (needR ? 'topay' : 'book') + '" ' + (people ? '' : 'disabled') + '>' + (people ? (needR ? 'Перейти к оплате' : 'Забронировать') : 'Укажите, кто придёт') + '</button>' +
+      '<p class="note" style="text-align:center;margin-top:10px">' + (f.pay === 'IDR наличные' ? 'Оплата наличными на месте.' : needR ? 'На следующем шаге покажем реквизиты. Бронь создаётся только с чеком об оплате.' : '') + '</p>');
   }
 
   $('sheet-body').onclick = async e => {
@@ -278,17 +305,10 @@ function openBooking(g) {
     const a = b.dataset.act;
     if (a === 'close') { active = false; return closeSheet(); }
     if (a === 'minus' || a === 'plus') { tap(); f[b.dataset.k] += a === 'plus' ? 1 : -1; draw(); return; }
-    if (a === 'book') {
-      f.comment = f.comment.trim();
-      b.disabled = true; b.textContent = 'Отправляем…';
-      try {
-        const r = await api('book', { gameId: g.id, girls: f.girls, guys: f.guys, tiers: tiers ? tiers.map((t, i) => f['t' + i]) : null, pay: f.pay, points: f.points, comment: f.comment });
-        haptic('success');
-        active = false;
-        showBooked(r);
-        loadGames(); loadProfile();
-      } catch (err) { haptic('error'); if (/профиль/.test(err.message)) { closeSheet(); return showRegistration(); } toast(err.message); b.disabled = false; b.textContent = 'Забронировать'; }
-    }
+    if (a === 'topay') { tap(); step = 'pay'; draw(); return; }
+    if (a === 'back') { tap(); step = 'form'; draw(); return; }
+    if (a === 'payupload') { pickFile(rcp => submit(rcp, b, 'Загрузить чек и забронировать')); return; }
+    if (a === 'book') return submit(null, b, 'Забронировать');
   };
   $('sheet-body').oninput = e => { if (e.target.id === 'pts') { f.points = +e.target.value; f.comment = $('cm').value; draw(); } };
   draw();
@@ -324,8 +344,9 @@ function openPlayers(gid, title) {
 function showBooked(r) {
   const head = '<div class="done"><img class="emb" alt="" src="' + $('p-emb').src + '">';
   if (!r.needReceipt) {
-    $('sheet-body').innerHTML = head + '<h3>Бронь отправлена</h3><p class="meta">Номер брони ' + esc(r.id) +
-      '. Мы подтвердим её в чате с ботом.</p></div><button class="cta" data-act="close">Готово</button>';
+    $('sheet-body').innerHTML = head + '<h3>' + (r.receiptSent ? 'Заявка отправлена' : 'Бронь отправлена') + '</h3><p class="meta">Номер брони ' + esc(r.id) +
+      (r.receiptSent ? '. Мы проверим оплату и подтвердим бронь в чате с ботом.' : '. Мы подтвердим её в чате с ботом.') + '</p></div><button class="cta" data-act="close">Готово</button>';
+    $('sheet-body').onclick = e => { if (e.target.closest('[data-act=close]')) closeSheet(); };
     return;
   }
   $('sheet-body').innerHTML = head + '<h3>Осталось оплатить</h3><p class="meta">Бронь ' + esc(r.id) + ', к оплате <b style="color:var(--gold)">' +
@@ -362,6 +383,16 @@ document.addEventListener('click', async e => {
   catch (err) { const t = document.createElement('textarea'); t.value = b.dataset.copy; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
   tap(); toast('Скопировано');
 });
+
+function pickFile(onPicked) {
+  const input = $('file');
+  input.value = '';
+  input.onchange = async () => {
+    const file = input.files[0]; if (!file) return;
+    try { onPicked(await readReceipt(file)); } catch (err) { haptic('error'); toast(err.message); }
+  };
+  input.click();
+}
 
 function pickReceipt(bookingId, btn, done) {
   const input = $('file');
