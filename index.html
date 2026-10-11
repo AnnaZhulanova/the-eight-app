@@ -352,7 +352,8 @@ function reqHtml(text) {
 }
 document.addEventListener('click', e => {
   const m = e.target.closest('[data-map]'); if (!m) return;
-  const url = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(m.dataset.map + ', Bali');
+  const url = /HUBBLE/i.test(m.dataset.map) ? 'https://maps.app.goo.gl/iERkhF9z82UjuWsm6'
+    : 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(m.dataset.map + ', Bali');
   if (tg && tg.openLink) tg.openLink(url); else window.open(url, '_blank');
 });
 document.addEventListener('click', async e => {
