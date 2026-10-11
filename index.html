@@ -436,9 +436,9 @@ function renderProfile() {
   $('profile').innerHTML =
     '<div class="card balance"><div><b>' + p.balance + '</b><small>' + plural(p.balance, 'балл', 'балла', 'баллов') + ' клуба</small></div>' +
     '<div class="side"><em>' + p.played + '</em>' + plural(p.played, 'игра сыграна', 'игры сыграны', 'игр сыграно') + '</div></div>' +
-    '<div class="item" style="border-top:0"><div><div class="t">' + esc(p.name) + '</div><div class="s">' +
-      [p.phone, p.birth ? 'д. р. ' + p.birth : ''].filter(Boolean).map(esc).join(', ') + '</div></div>' +
-      '<button class="link" data-edit="1" style="margin-top:0">Изменить</button></div>' +
+    '<div class="item" style="border-top:0;align-items:flex-start"><div><div class="t">' + esc(p.name) + '</div>' +
+      [p.phone, p.birth].filter(Boolean).map(v => '<div class="s">' + esc(v) + '</div>').join('') + '</div>' +
+      '<button class="link" data-edit="1" style="margin-top:2px">Изменить</button></div>' +
     '<h2>Мои брони</h2>' + bookings + '<h2>История баллов</h2>' + history;
 }
 $('profile').addEventListener('click', e => {
