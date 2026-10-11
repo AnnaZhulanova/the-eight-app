@@ -127,6 +127,7 @@ textarea{width:100%;min-height:64px;background:rgba(2,26,22,.7);border:1px solid
 .pchip.wait{border-style:dashed}
 .pav{width:26px;height:26px;border-radius:50%;object-fit:cover;flex:none;background:var(--surface-2);color:var(--gold);font-size:12px;display:flex;align-items:center;justify-content:center}
 .pchip em{font-style:normal;color:var(--muted);font-size:12px}
+.maplink{color:var(--gold);text-decoration:underline;text-underline-offset:3px;text-align:left;font-size:14px;padding:2px 0;line-height:1.4}
 .check-ok{color:#A8D9C7;font-size:13px;margin-top:6px}
 .done .emb{width:70px;margin:0 auto 14px;display:block}
 
@@ -253,7 +254,7 @@ function openBooking(g) {
     const sum = Math.max(total - (cur === 'IDR' ? f.points * p.pointRate : 0), 0);
     $('sheet-body').innerHTML =
       '<h3>' + esc(g.title) + '</h3>' +
-      '<p class="meta">' + fmt(g.ts, { weekday: 'long', day: 'numeric', month: 'long' }) + ', ' + esc(g.time) + (g.place ? '<br>' + esc(g.place) : '') + (g.host ? '<br>Ведущий: ' + esc(g.host) : '') + '</p>' +
+      '<p class="meta">' + fmt(g.ts, { weekday: 'long', day: 'numeric', month: 'long' }) + ', ' + esc(g.time) + (g.place ? '<br><button class="maplink" data-map="' + esc(g.place) + '">📍 ' + esc(g.place) + '</button>' : '') + (g.host ? '<br>Ведущий: ' + esc(g.host) : '') + '</p>' +
       (g.desc ? '<p class="desc">' + esc(g.desc) + '</p>' : '') +
       '<div class="field"><span class="lbl">Уже записались' + (players && players.length ? ': ' + playersCount(players) : '') + '</span>' + playersHtml(players) + '</div>' +
       (g.invite ? '<p class="note" style="margin-top:18px">Вход по приглашению.</p><button class="cta ghost" data-act="close">Закрыть</button>' :
@@ -349,6 +350,11 @@ function reqHtml(text) {
     ? '<button class="copy" data-copy="' + esc(line.trim()) + '">' + esc(line.trim()) + '<span>копировать</span></button>'
     : esc(line)).join('\n');
 }
+document.addEventListener('click', e => {
+  const m = e.target.closest('[data-map]'); if (!m) return;
+  const url = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(m.dataset.map + ', Bali');
+  if (tg && tg.openLink) tg.openLink(url); else window.open(url, '_blank');
+});
 document.addEventListener('click', async e => {
   const b = e.target.closest('[data-copy]'); if (!b) return;
   try { await navigator.clipboard.writeText(b.dataset.copy); }
