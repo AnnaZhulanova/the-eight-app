@@ -224,8 +224,13 @@ async function api(action, data) {
 
 /* ---------- афиша ---------- */
 async function loadGames() {
-  try { const r = await api('games'); state.games = r.games; state.requisites = r.requisites || {}; state.waits = r.waits || []; renderGames(); }
+  try { const r = await api('games'); state.games = r.games; state.requisites = r.requisites || {}; state.waits = r.waits || []; state.invites = r.invites || []; renderGames(); }
   catch (e) { $('games').innerHTML = '<div class="empty"><strong>Афиша не загрузилась</strong>' + esc(e.message) + '</div>'; }
+}
+
+function accepted(gid) {
+  const p = state.profile;
+  return !!(p && p.bookings && p.bookings.some(b => b.gid === gid && ['Ожидает', 'Подтверждена', 'Пришёл'].indexOf(b.status) >= 0));
 }
 
 function renderGames() {
@@ -235,7 +240,7 @@ function renderGames() {
   const list = state.games.filter(g => state.filter === 'Все' || g.format === state.filter);
   if (!list.length) { $('games').innerHTML = '<div class="empty"><strong>Скоро новые игры</strong>Расписание появится здесь, а бот напишет, когда откроется запись.</div>'; return; }
   $('games').innerHTML = list.map(g => {
-    const seats = g.invite ? 'По приглашению' : g.open ? 'Осталось ' + g.left + ' ' + plural(g.left, 'место', 'места', 'мест') : (state.waits || []).indexOf(g.id) >= 0 ? 'Вы в листе ожидания' : 'Мест нет';
+    const seats = g.invite ? ((state.invites || []).indexOf(g.id) >= 0 ? (accepted(g.id) ? 'Вы приняли приглашение' : 'Вы приглашены') : 'По приглашению') : g.open ? 'Осталось ' + g.left + ' ' + plural(g.left, 'место', 'места', 'мест') : (state.waits || []).indexOf(g.id) >= 0 ? 'Вы в листе ожидания' : 'Мест нет';
     return '<button class="game" data-id="' + esc(g.id) + '">' +
       '<div class="day"><b>' + fmt(g.ts, { day: 'numeric' }) + '</b><span>' + fmt(g.ts, { month: 'short' }).replace('.', '') + '<br>' + fmt(g.ts, { weekday: 'short' }) + '</span></div>' +
       '<div><div class="g-title">' + esc(g.title) + '</div>' +
@@ -307,7 +312,11 @@ function openBooking(g) {
       '<p class="meta">' + fmt(g.ts, { weekday: 'long', day: 'numeric', month: 'long' }) + ', ' + esc(g.time) + (g.place ? '<br><button class="maplink" data-map="' + esc(g.place) + '">📍 ' + esc(g.place) + '</button>' : '') + (g.host ? '<br>Ведущий: ' + esc(g.host) : '') + '</p>' +
       (g.desc ? '<p class="desc">' + esc(g.desc) + '</p>' : '') +
       '<div class="field"><span class="lbl">Уже записались' + (players && players.length ? ': ' + playersCount(players) : '') + '</span>' + playersHtml(players) + '</div>' +
-      (g.invite ? '<p class="note" style="margin-top:18px">Вход по приглашению.</p><button class="cta ghost" data-act="close">Закрыть</button>' :
+      (g.invite ? ((state.invites || []).indexOf(g.id) < 0
+          ? '<p class="note" style="margin-top:18px">Вход по приглашению.</p><button class="cta ghost" data-act="close">Закрыть</button>'
+          : accepted(g.id)
+            ? '<p class="note" style="margin-top:18px">✅ Вы приняли приглашение. До встречи за столом!</p><button class="cta ghost" data-act="close">Закрыть</button>'
+            : '<p class="note" style="margin-top:18px">Вы приглашены на закрытый вечер. Подтвердите участие, и мы будем ждать вас.</p><button class="cta" data-act="accept">Принять приглашение</button><button class="cta ghost" data-act="close">Закрыть</button>') :
        !g.open ? ((state.waits || []).indexOf(g.id) >= 0
          ? '<p class="note" style="margin-top:18px">Вы в листе ожидания. Как только освободится место, бот сразу напишет вам.</p><button class="cta ghost" data-act="unwait">Выйти из листа ожидания</button>'
          : '<p class="note" style="margin-top:18px">Мест нет. Встаньте в лист ожидания, и бот напишет, если кто-то отменит бронь.</p><button class="cta" data-act="wait">Встать в лист ожидания</button><button class="cta ghost" data-act="close">Закрыть</button>') :
@@ -331,6 +340,15 @@ function openBooking(g) {
     const a = b.dataset.act;
     if (a === 'close') { active = false; return closeSheet(); }
     if (a === 'minus' || a === 'plus') { tap(); f[b.dataset.k] += a === 'plus' ? 1 : -1; draw(); return; }
+    if (a === 'accept') {
+      b.disabled = true; b.textContent = 'Отправляем…';
+      try {
+        await api('accept', { gameId: g.id });
+        haptic('success'); toast('Приглашение принято');
+        await loadProfile(); draw(); renderGames();
+      } catch (err) { haptic('error'); if (/профиль/.test(err.message)) { closeSheet(); return showRegistration(); } toast(err.message); b.disabled = false; b.textContent = 'Принять приглашение'; }
+      return;
+    }
     if (a === 'wait' || a === 'unwait') {
       b.disabled = true;
       try {
