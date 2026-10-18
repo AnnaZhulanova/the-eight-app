@@ -146,6 +146,12 @@ textarea{width:100%;min-height:64px;background:rgba(2,26,22,.7);border:1px solid
 .gbtn b{font-family:var(--serif);font-weight:500;font-size:17px}
 .gbtn.earn b{color:#A8D9C7}.gbtn.spend b{color:var(--gold)}.gbtn:disabled{opacity:.4}
 .done-flash{background:rgba(47,125,102,.45)}
+.invite-box{margin:4px 0 18px;padding:18px;border-radius:18px;border:1px solid rgba(236,219,190,.45);background:linear-gradient(160deg,rgba(26,108,94,.35),rgba(2,26,22,.6));text-align:center}
+.invite-box small{display:block;letter-spacing:.24em;text-transform:uppercase;font-size:11px;color:var(--gold-dim)}
+.invite-box .g-title{margin:8px 0 2px}
+.invite-cta{display:block;width:100%;margin-top:14px;padding:17px 12px;border-radius:14px;background:linear-gradient(135deg,#F6EBD0,#D9C49B);color:#0B2A23;font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-size:15px;box-shadow:0 0 0 1px rgba(236,219,190,.7),0 0 26px rgba(236,219,190,.45);animation:invglow 2.2s ease-in-out infinite}
+.invite-cta:disabled{opacity:.6;animation:none}
+@keyframes invglow{50%{box-shadow:0 0 0 1px rgba(236,219,190,.95),0 0 42px rgba(236,219,190,.8)}}
 .check-ok{color:#A8D9C7;font-size:13px;margin-top:6px}
 .done .emb{width:70px;margin:0 auto 14px;display:block}
 
@@ -239,8 +245,12 @@ function renderGames() {
   $('chips').innerHTML = formats.length > 2 ? formats.map(f => '<button class="chip" aria-pressed="' + (f === state.filter) + '" data-f="' + esc(f) + '">' + esc(f) + '</button>').join('') : '';
   const list = state.games.filter(g => state.filter === 'Все' || g.format === state.filter);
   if (!list.length) { $('games').innerHTML = '<div class="empty"><strong>Скоро новые игры</strong>Расписание появится здесь, а бот напишет, когда откроется запись.</div>'; return; }
-  $('games').innerHTML = list.map(g => {
-    const seats = g.invite ? ((state.invites || []).indexOf(g.id) >= 0 ? (accepted(g.id) ? 'Вы приняли приглашение' : 'Вы приглашены') : 'По приглашению') : g.open ? 'Осталось ' + g.left + ' ' + plural(g.left, 'место', 'места', 'мест') : (state.waits || []).indexOf(g.id) >= 0 ? 'Вы в листе ожидания' : 'Мест нет';
+  const pend = state.profile && state.profile.registered
+    ? state.games.filter(g => g.invite && (state.invites || []).indexOf(g.id) >= 0 && !accepted(g.id)) : [];
+  $('games').innerHTML = pend.map(g => '<div class="invite-box"><small>Вы приглашены</small><div class="g-title">' + esc(g.title) + '</div>' +
+    '<div class="g-meta">' + fmt(g.ts, { weekday: 'long', day: 'numeric', month: 'long' }) + ', ' + esc(g.time) + (g.place ? ' · ' + esc(g.place) : '') + '</div>' +
+    '<button class="invite-cta" data-accept="' + esc(g.id) + '">Подтвердить приглашение</button></div>').join('') + list.map(g => {
+    const seats = g.invite ? ((state.invites || []).indexOf(g.id) >= 0 ? (accepted(g.id) ? 'Участие подтверждено' : 'Вы приглашены · подтвердите участие') : 'По приглашению') : g.open ? 'Осталось ' + g.left + ' ' + plural(g.left, 'место', 'места', 'мест') : (state.waits || []).indexOf(g.id) >= 0 ? 'Вы в листе ожидания' : 'Мест нет';
     return '<button class="game" data-id="' + esc(g.id) + '">' +
       '<div class="day"><b>' + fmt(g.ts, { day: 'numeric' }) + '</b><span>' + fmt(g.ts, { month: 'short' }).replace('.', '') + '<br>' + fmt(g.ts, { weekday: 'short' }) + '</span></div>' +
       '<div><div class="g-title">' + esc(g.title) + '</div>' +
@@ -250,7 +260,16 @@ function renderGames() {
 }
 
 $('chips').addEventListener('click', e => { const b = e.target.closest('.chip'); if (!b) return; tap(); state.filter = b.dataset.f; renderGames(); });
-$('games').addEventListener('click', e => { const b = e.target.closest('.game'); if (b) openBooking(state.games.find(g => g.id === b.dataset.id)); });
+$('games').addEventListener('click', async e => {
+  const acc = e.target.closest('[data-accept]');
+  if (acc) {
+    acc.disabled = true; acc.textContent = 'Отправляем…';
+    try { await api('accept', { gameId: acc.dataset.accept }); haptic('success'); toast('Приглашение подтверждено. До встречи!'); await loadProfile(); }
+    catch (err) { haptic('error'); if (/профиль/.test(err.message)) return showRegistration(); toast(err.message); acc.disabled = false; acc.textContent = 'Подтвердить приглашение'; }
+    return;
+  }
+  const b = e.target.closest('.game'); if (b) openBooking(state.games.find(g => g.id === b.dataset.id));
+});
 
 /* ---------- бронь ---------- */
 function openBooking(g) {
@@ -315,8 +334,8 @@ function openBooking(g) {
       (g.invite ? ((state.invites || []).indexOf(g.id) < 0
           ? '<p class="note" style="margin-top:18px">Вход по приглашению.</p><button class="cta ghost" data-act="close">Закрыть</button>'
           : accepted(g.id)
-            ? '<p class="note" style="margin-top:18px">✅ Вы приняли приглашение. До встречи за столом!</p><button class="cta ghost" data-act="close">Закрыть</button>'
-            : '<p class="note" style="margin-top:18px">Вы приглашены на закрытый вечер. Подтвердите участие, и мы будем ждать вас.</p><button class="cta" data-act="accept">Принять приглашение</button><button class="cta ghost" data-act="close">Закрыть</button>') :
+            ? '<p class="note" style="margin-top:18px">✅ Участие подтверждено. До встречи за столом!</p><button class="cta ghost" data-act="close">Закрыть</button>'
+            : '<p class="note" style="margin-top:18px">Вы приглашены на закрытый вечер. Подтвердите участие, и мы будем ждать вас.</p><button class="invite-cta" data-act="accept">Подтвердить приглашение</button><button class="cta ghost" data-act="close">Закрыть</button>') :
        !g.open ? ((state.waits || []).indexOf(g.id) >= 0
          ? '<p class="note" style="margin-top:18px">Вы в листе ожидания. Как только освободится место, бот сразу напишет вам.</p><button class="cta ghost" data-act="unwait">Выйти из листа ожидания</button>'
          : '<p class="note" style="margin-top:18px">Мест нет. Встаньте в лист ожидания, и бот напишет, если кто-то отменит бронь.</p><button class="cta" data-act="wait">Встать в лист ожидания</button><button class="cta ghost" data-act="close">Закрыть</button>') :
@@ -344,9 +363,9 @@ function openBooking(g) {
       b.disabled = true; b.textContent = 'Отправляем…';
       try {
         await api('accept', { gameId: g.id });
-        haptic('success'); toast('Приглашение принято');
+        haptic('success'); toast('Приглашение подтверждено. До встречи!');
         await loadProfile(); draw(); renderGames();
-      } catch (err) { haptic('error'); if (/профиль/.test(err.message)) { closeSheet(); return showRegistration(); } toast(err.message); b.disabled = false; b.textContent = 'Принять приглашение'; }
+      } catch (err) { haptic('error'); if (/профиль/.test(err.message)) { closeSheet(); return showRegistration(); } toast(err.message); b.disabled = false; b.textContent = 'Подтвердить приглашение'; }
       return;
     }
     if (a === 'wait' || a === 'unwait') {
@@ -503,7 +522,7 @@ $('scrim').onclick = closeSheet;
 /* ---------- профиль ---------- */
 const PILL = { 'Подтверждена': 'ok', 'Пришёл': 'ok', 'Ожидает': 'wait', 'Отклонена': 'no', 'Отменена': 'no', 'Не пришёл': 'no' };
 async function loadProfile() {
-  try { state.profile = await api('profile'); renderProfile(); }
+  try { state.profile = await api('profile'); renderProfile(); if (state.games) renderGames(); }
   catch (e) { $('profile').innerHTML = '<div class="empty"><strong>Профиль не загрузился</strong>' + esc(e.message) + '</div>'; }
 }
 function renderProfile() {
