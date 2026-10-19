@@ -820,6 +820,7 @@ $('nav-admin').onclick = () => show('admin');
 if (!tg || !tg.initData) {
   $('games').innerHTML = '<div class="empty"><strong>Откройте через бота</strong>Приложение работает внутри Telegram: @the8mafiabali_bot</div>';
   $('profile').innerHTML = '';
+  if (/[?&]view=roles/.test(location.search)) { document.querySelector('nav').hidden = true; show('roles'); }
 } else {
   loadGames();
   loadProfile().then(() => { if (state.profile && !state.profile.registered) showRegistration(); });
