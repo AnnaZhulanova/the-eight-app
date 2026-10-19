@@ -152,6 +152,11 @@ textarea{width:100%;min-height:64px;background:rgba(2,26,22,.7);border:1px solid
 .invite-cta{display:block;width:100%;margin-top:14px;padding:17px 12px;border-radius:14px;background:linear-gradient(135deg,#F6EBD0,#D9C49B);color:#0B2A23;font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-size:15px;box-shadow:0 0 0 1px rgba(236,219,190,.7),0 0 26px rgba(236,219,190,.45);animation:invglow 2.2s ease-in-out infinite}
 .invite-cta:disabled{opacity:.6;animation:none}
 @keyframes invglow{50%{box-shadow:0 0 0 1px rgba(236,219,190,.95),0 0 42px rgba(236,219,190,.8)}}
+.rcard{border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-bottom:10px;background:rgba(2,26,22,.55)}
+.rcard .rn{font-family:var(--serif);font-size:21px;color:var(--ivory)}
+.rcard p{margin:6px 0 0;font-size:14.5px;line-height:1.5;color:var(--ivory-dim, #CFC6B4)}
+.side{display:inline-block;margin-top:6px;padding:3px 10px;border-radius:999px;font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;border:1px solid}
+.side.civ{color:#A8D9C7;border-color:#2F7D66}.side.maf{color:#E7A9A1;border-color:#8E3B33}.side.neu{color:var(--gold);border-color:var(--gold-dim)}.side.sup{color:#ECDBBE;border-color:#ECDBBE}
 .check-ok{color:#A8D9C7;font-size:13px;margin-top:6px}
 .done .emb{width:70px;margin:0 auto 14px;display:block}
 
@@ -176,6 +181,11 @@ textarea{width:100%;min-height:64px;background:rgba(2,26,22,.7);border:1px solid
     <p class="note" style="text-align:center;margin-bottom:6px">Заполните профиль один раз, и бронировать игры можно будет в пару касаний.</p>
     <div id="reg-form"></div>
   </main>
+  <main class="wrap" id="view-roles" hidden>
+    <header class="hero"><img class="emb" src="" alt="" id="r-emb"><div><h1>Роли</h1><p>Роли и суперспособности</p></div></header>
+    <div class="chips" id="r-chips"></div>
+    <div id="roles"></div>
+  </main>
   <main class="wrap" id="view-admin" hidden>
     <header class="hero"><img class="emb" src="" alt="" id="a-emb"><div><h1>Ведущий</h1><p>Отметки и грани</p></div></header>
     <div id="admin"></div>
@@ -187,6 +197,7 @@ textarea{width:100%;min-height:64px;background:rgba(2,26,22,.7);border:1px solid
 </div>
 <nav>
   <button id="nav-games" aria-current="page">Афиша</button>
+  <button id="nav-roles">Роли</button>
   <button id="nav-profile">Мой профиль</button>
   <button id="nav-admin" hidden>Ведущий</button>
 </nav>
@@ -772,13 +783,36 @@ function openGrant(uid, nick, game) {
 
 /* ---------- навигация ---------- */
 function show(view) {
-  ['games', 'profile', 'admin'].forEach(v => {
+  ['games', 'roles', 'profile', 'admin'].forEach(v => {
     $('view-' + v).hidden = view !== v;
     if (view === v) $('nav-' + v).setAttribute('aria-current', 'page'); else $('nav-' + v).removeAttribute('aria-current');
   });
   if (view === 'admin') loadAdmin();
+  if (view === 'roles') loadRoles();
   tap(); window.scrollTo(0, 0);
 }
+
+/* ---------- роли ---------- */
+const RS = { list: null, f: '' };
+async function loadRoles() {
+  if (!$('r-emb').getAttribute('src')) $('r-emb').src = $('p-emb').src;
+  if (RS.list) return renderRoles();
+  $('roles').innerHTML = '<div class="skel"></div><div class="skel"></div>';
+  try { RS.list = (await api('roles')).roles; renderRoles(); }
+  catch (err) { $('roles').innerHTML = '<div class="empty"><strong>Не загрузилось</strong>' + esc(err.message) + '</div>'; }
+}
+function renderRoles() {
+  if (!RS.list.length) { $('r-chips').innerHTML = ''; $('roles').innerHTML = '<div class="empty"><strong>Скоро здесь будут роли</strong>Описание ролей и суперспособностей появится совсем скоро.</div>'; return; }
+  const fs = [...new Set(RS.list.map(r => r.format))];
+  if (fs.indexOf(RS.f) < 0) RS.f = fs[0];
+  $('r-chips').innerHTML = fs.length > 1 ? fs.map(f => '<button class="chip" aria-pressed="' + (f === RS.f) + '" data-rf="' + esc(f) + '">' + esc(f) + '</button>').join('') : '';
+  const cls = s => /маф/i.test(s) ? 'maf' : /мир/i.test(s) ? 'civ' : /супер/i.test(s) ? 'sup' : 'neu';
+  $('roles').innerHTML = RS.list.filter(r => r.format === RS.f).map(r =>
+    '<div class="rcard"><div class="rn">' + esc(r.name) + '</div>' + (r.side ? '<span class="side ' + cls(r.side) + '">' + esc(r.side) + '</span>' : '') +
+    (r.power ? '<p>' + esc(r.power) + '</p>' : '') + '</div>').join('');
+}
+$('r-chips').addEventListener('click', e => { const b = e.target.closest('[data-rf]'); if (!b) return; tap(); RS.f = b.dataset.rf; renderRoles(); });
+$('nav-roles').onclick = () => show('roles');
 $('nav-games').onclick = () => show('games');
 $('nav-profile').onclick = () => show('profile');
 $('nav-admin').onclick = () => show('admin');
@@ -789,6 +823,7 @@ if (!tg || !tg.initData) {
 } else {
   loadGames();
   loadProfile().then(() => { if (state.profile && !state.profile.registered) showRegistration(); });
+  if (/[?&]view=roles/.test(location.search)) show('roles');
 }
 </script>
 </body>
