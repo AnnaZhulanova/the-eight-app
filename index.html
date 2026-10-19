@@ -240,8 +240,14 @@ async function api(action, data) {
 }
 
 /* ---------- афиша ---------- */
+const CKEY = 'g8_' + ((tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) || 'x') + '_';
+function cacheGet(k) { try { return JSON.parse(localStorage.getItem(CKEY + k) || 'null'); } catch (e) { return null; } }
+function cacheSet(k, v) { try { localStorage.setItem(CKEY + k, JSON.stringify(v)); } catch (e) {} }
+
 async function loadGames() {
-  try { const r = await api('games'); state.games = r.games; state.requisites = r.requisites || {}; state.waits = r.waits || []; state.invites = r.invites || []; renderGames(); }
+  const c = cacheGet('games');
+  if (c && c.games && !(state.games && state.games.length)) { state.games = c.games; state.requisites = c.requisites || {}; state.waits = c.waits || []; state.invites = c.invites || []; renderGames(); }
+  try { const r = await api('games'); cacheSet('games', r); state.games = r.games; state.requisites = r.requisites || {}; state.waits = r.waits || []; state.invites = r.invites || []; renderGames(); }
   catch (e) { $('games').innerHTML = '<div class="empty"><strong>Афиша не загрузилась</strong>' + esc(e.message) + '</div>'; }
 }
 
@@ -533,7 +539,9 @@ $('scrim').onclick = closeSheet;
 /* ---------- профиль ---------- */
 const PILL = { 'Подтверждена': 'ok', 'Пришёл': 'ok', 'Ожидает': 'wait', 'Отклонена': 'no', 'Отменена': 'no', 'Не пришёл': 'no' };
 async function loadProfile() {
-  try { state.profile = await api('profile'); renderProfile(); if (state.games) renderGames(); }
+  const c = cacheGet('profile');
+  if (c && !state.profile) { state.profile = c; renderProfile(); if (state.games) renderGames(); }
+  try { state.profile = await api('profile'); cacheSet('profile', state.profile); renderProfile(); if (state.games) renderGames(); }
   catch (e) { $('profile').innerHTML = '<div class="empty"><strong>Профиль не загрузился</strong>' + esc(e.message) + '</div>'; }
 }
 function renderProfile() {
