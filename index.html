@@ -573,7 +573,7 @@ function renderProfile() {
     '<div class="side"><em>' + p.played + '</em>' + plural(p.played, 'игра сыграна', 'игры сыграны', 'игр сыграно') + '</div></div>' +
     '<div class="bar"><i style="width:' + Math.max(3, Math.min(100, pct)) + '%"></i></div>' +
     '<div class="lv"><span>' + esc(p.level) + ' · добыто ' + p.life + '</span><span>' + (p.next ? 'до «' + esc(p.next.name) + '» ' + p.next.need : 'высшая огранка') + '</span></div>' +
-    '<p class="note" style="margin-top:10px">Сезон до ' + esc(p.seasonEnd) + ' (' + p.daysLeft + ' ' + plural(p.daysLeft, 'день', 'дня', 'дней') + '), потом баланс с нуля. Огранка остаётся навсегда.</p>' +
+    '<p class="note" style="margin-top:10px">Сезон до ' + esc(p.seasonEnd) + ' (' + p.daysLeft + ' ' + plural(p.daysLeft, 'день', 'дня', 'дней') + '), потом баланс с нуля.' + (p.crown ? ' Турнир «Корона сезона» — ' + esc(p.crown) + '.' : '') + ' Огранка остаётся навсегда.</p>' +
     (p.gifts ? '<div class="gift">🎁 Игра в подарок: ' + p.gifts + '. Выберите её при брони.</div>' : '') +
     '</div>' +
     '<div class="qa"><button data-qa="rating">Корона сезона</button><button data-qa="treasury">Сокровищница</button><button data-qa="transfer">Поделиться</button></div>' +
@@ -672,7 +672,7 @@ async function openRating() {
   sheetOpen('<h3>Корона сезона</h3><p class="meta">Загружаем рейтинг…</p>');
   try {
     const r = await api('rating');
-    sheetOpen('<h3>Корона сезона</h3><p class="meta">Сезон ' + r.season + ' · до ' + esc(r.end) + '. 15 лучших по балансу выходят в закрытый турнир с большими призовыми.</p>' +
+    sheetOpen('<h3>Корона сезона</h3><p class="meta">Сезон ' + r.season + ' · до ' + esc(r.end) + '. 15 лучших по балансу выходят в закрытый турнир с большими призовыми.' + (r.crown ? ' Турнир «Корона сезона» — ' + esc(r.crown) + '.' : '') + '</p>' +
       (r.top.length ? r.top.map(x =>
         '<div class="item rank' + (x.me ? ' me' : '') + '"><div class="who" style="margin:0"><span class="place">' + x.place + '</span>' +
         (x.photo ? '<img class="pav" alt="" src="' + esc(x.photo) + '">' : '<span class="pav">' + esc(x.nick.charAt(0).toUpperCase()) + '</span>') +
