@@ -552,7 +552,7 @@ function renderProfile() {
   if (p.photo) { const e = $('p-avatar'); e.src = p.photo; e.hidden = false; }
   $('p-sub').textContent = [p.gender, 'огранка: ' + (p.level || 'Сырой камень')].filter(Boolean).join(', ');
   $('nav-admin').hidden = true;
-  $('nav-roles').hidden = !p.rolesOpen;
+  $('nav-roles').hidden = true;
   if (p.isAdmin) $('a-emb').src = $('p-emb').src;
   const bookings = p.bookings.length ? p.bookings.map(b =>
     '<div class="item"><div><div class="t">' + esc(b.game) + '</div><div class="s">' + b.seats + ' ' + plural(b.seats, 'место', 'места', 'мест') +
@@ -853,7 +853,6 @@ if (!tg || !tg.initData) {
   loadGames();
   loadProfile().then(() => {
     if (state.profile && !state.profile.registered) return showRegistration();
-    if (state.profile && state.profile.rolesOpen && /[?&]view=roles/.test(location.search)) show('roles');
   });
 }
 </script>
