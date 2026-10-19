@@ -156,7 +156,7 @@ textarea{width:100%;min-height:64px;background:rgba(2,26,22,.7);border:1px solid
 .rcard .rn{font-family:var(--serif);font-size:21px;color:var(--ivory)}
 .rcard p{margin:6px 0 0;font-size:14.5px;line-height:1.5;color:var(--ivory-dim, #CFC6B4)}
 .side{display:inline-block;margin-top:6px;padding:3px 10px;border-radius:999px;font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;border:1px solid}
-.side.civ{color:#A8D9C7;border-color:#2F7D66}.side.maf{color:#E7A9A1;border-color:#8E3B33}.side.neu{color:var(--gold);border-color:var(--gold-dim)}.side.sup{color:#ECDBBE;border-color:#ECDBBE}
+.side.red{color:#E7A9A1;border-color:#8E3B33}.side.blk{color:#ECDBBE;border-color:#ECDBBE;background:#050B0A}.side.neu{color:var(--gold);border-color:var(--gold-dim)}.side.sup{color:#A8D9C7;border-color:#2F7D66}.side.flip{color:#ECDBBE;border-color:#8E3B33;background:linear-gradient(90deg,rgba(142,59,51,.35),#050B0A)}
 .check-ok{color:#A8D9C7;font-size:13px;margin-top:6px}
 .done .emb{width:70px;margin:0 auto 14px;display:block}
 
@@ -806,7 +806,7 @@ function renderRoles() {
   const fs = [...new Set(RS.list.map(r => r.format))];
   if (fs.indexOf(RS.f) < 0) RS.f = fs[0];
   $('r-chips').innerHTML = fs.length > 1 ? fs.map(f => '<button class="chip" aria-pressed="' + (f === RS.f) + '" data-rf="' + esc(f) + '">' + esc(f) + '</button>').join('') : '';
-  const cls = s => /маф/i.test(s) ? 'maf' : /мир/i.test(s) ? 'civ' : /супер/i.test(s) ? 'sup' : 'neu';
+  const cls = s => /→/.test(s) ? 'flip' : /красн|мир/i.test(s) ? 'red' : /чёрн|черн|маф/i.test(s) ? 'blk' : /трет|нейтр/i.test(s) ? 'neu' : 'sup';
   $('roles').innerHTML = RS.list.filter(r => r.format === RS.f).map(r =>
     '<div class="rcard"><div class="rn">' + esc(r.name) + '</div>' + (r.side ? '<span class="side ' + cls(r.side) + '">' + esc(r.side) + '</span>' : '') +
     (r.power ? '<p>' + esc(r.power) + '</p>' : '') + '</div>').join('');
