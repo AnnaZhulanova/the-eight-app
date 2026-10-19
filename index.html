@@ -119,6 +119,8 @@ textarea{width:100%;min-height:64px;background:rgba(2,26,22,.7);border:1px solid
 .who{display:flex;align-items:center;gap:14px;margin:18px 0 4px}
 .who b{display:block;font-family:var(--serif);font-size:22px;font-weight:500;color:var(--ivory)}
 .who span{color:var(--muted);font-size:13px}
+.reg-err{margin:4px 0 12px;padding:10px 14px;border-radius:12px;border:1px solid #8E3B33;background:rgba(142,59,51,.18);color:#F1C6C0;font-size:14px;line-height:1.45}
+.inp.bad{border-color:#C0645A}
 .inp{width:100%;background:rgba(2,26,22,.7);border:1px solid var(--line);border-radius:12px;color:var(--ivory);padding:12px 14px;font:inherit;font-size:16px;color-scheme:dark}
 .inp:focus{border-color:var(--gold-dim);outline:none}
 .inline-link{display:inline-block;margin-top:8px;color:var(--gold);font-size:13px;text-decoration:underline;text-underline-offset:3px}
@@ -616,6 +618,7 @@ function regForm(p, target, onSaved, editing) {
       '<div class="field"><label for="f-phone">Телефон / WhatsApp</label><input class="inp" id="f-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+62 812 3456 7890" value="' + esc(v.phone) + '">' +
       (tg && tg.requestContact ? '<button type="button" class="inline-link" data-act="contact">Взять номер из Telegram</button>' : '') + '</div>' +
       '<div class="field"><label for="f-birth">Дата рождения</label><input class="inp" id="f-birth" type="date" value="' + esc(v.birth) + '"></div>' +
+      '<div class="reg-err" id="reg-err" hidden></div>' +
       '<button class="cta" data-act="save">' + (editing ? 'Сохранить' : 'Сохранить и войти') + '</button>' +
       (editing ? '<button class="cta ghost" data-act="close">Отмена</button>' : '');
   };
@@ -633,9 +636,26 @@ function regForm(p, target, onSaved, editing) {
       return;
     }
     if (b.dataset.act === 'save') {
+      const showErr = (msg, field) => {
+        haptic('error');
+        document.querySelectorAll('#' + target.id + ' .inp.bad').forEach(x => x.classList.remove('bad'));
+        const box = $('reg-err'); box.textContent = msg; box.hidden = false;
+        const f = field && $('f-' + field); if (f) f.classList.add('bad');
+        box.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      };
+      const digits = String(v.phone || '').replace(/\D/g, '');
+      const bd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v.birth || '');
+      const age = bd ? (Date.now() - new Date(+bd[1], +bd[2] - 1, +bd[3]).getTime()) / 31557600000 : 0;
+      if (!v.name) return showErr('Укажите имя.', 'name');
+      if ((v.nick || '').length < 2) return showErr('Игровой ник: минимум 2 символа.', 'nick');
+      if (!v.gender) return showErr('Выберите пол: «Девушка» или «Парень».');
+      if (digits.length < 8) return showErr('Проверьте номер телефона: нужно минимум 8 цифр.', 'phone');
+      if (!bd) return showErr('Укажите дату рождения: нажмите на поле и выберите дату.', 'birth');
+      if (age < 16 || age > 100) return showErr('Проверьте дату рождения: похоже, год указан неверно.', 'birth');
+      $('reg-err').hidden = true;
       b.disabled = true; b.textContent = 'Сохраняем…';
       try { await api('register', v); haptic('success'); await loadProfile(); onSaved(); }
-      catch (err) { haptic('error'); toast(err.message); b.disabled = false; b.textContent = editing ? 'Сохранить' : 'Сохранить и войти'; }
+      catch (err) { showErr(err.message, /ник/i.test(err.message) ? 'nick' : /телефон/i.test(err.message) ? 'phone' : /рожд/i.test(err.message) ? 'birth' : ''); b.disabled = false; b.textContent = editing ? 'Сохранить' : 'Сохранить и войти'; }
     }
   };
   draw();
