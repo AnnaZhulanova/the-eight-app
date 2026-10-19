@@ -197,7 +197,7 @@ textarea{width:100%;min-height:64px;background:rgba(2,26,22,.7);border:1px solid
 </div>
 <nav>
   <button id="nav-games" aria-current="page">Афиша</button>
-  <button id="nav-roles">Роли</button>
+  <button id="nav-roles" hidden>Роли</button>
   <button id="nav-profile">Мой профиль</button>
   <button id="nav-admin" hidden>Ведущий</button>
 </nav>
@@ -542,6 +542,7 @@ function renderProfile() {
   if (p.photo) { const e = $('p-avatar'); e.src = p.photo; e.hidden = false; }
   $('p-sub').textContent = [p.gender, 'огранка: ' + (p.level || 'Сырой камень')].filter(Boolean).join(', ');
   $('nav-admin').hidden = true;
+  $('nav-roles').hidden = !p.rolesOpen;
   if (p.isAdmin) $('a-emb').src = $('p-emb').src;
   const bookings = p.bookings.length ? p.bookings.map(b =>
     '<div class="item"><div><div class="t">' + esc(b.game) + '</div><div class="s">' + b.seats + ' ' + plural(b.seats, 'место', 'места', 'мест') +
@@ -820,11 +821,12 @@ $('nav-admin').onclick = () => show('admin');
 if (!tg || !tg.initData) {
   $('games').innerHTML = '<div class="empty"><strong>Откройте через бота</strong>Приложение работает внутри Telegram: @the8mafiabali_bot</div>';
   $('profile').innerHTML = '';
-  if (/[?&]view=roles/.test(location.search)) { document.querySelector('nav').hidden = true; show('roles'); }
 } else {
   loadGames();
-  loadProfile().then(() => { if (state.profile && !state.profile.registered) showRegistration(); });
-  if (/[?&]view=roles/.test(location.search)) show('roles');
+  loadProfile().then(() => {
+    if (state.profile && !state.profile.registered) return showRegistration();
+    if (state.profile && state.profile.rolesOpen && /[?&]view=roles/.test(location.search)) show('roles');
+  });
 }
 </script>
 </body>
