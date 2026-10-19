@@ -184,7 +184,7 @@ textarea{width:100%;min-height:64px;background:rgba(2,26,22,.7);border:1px solid
     <div id="reg-form"></div>
   </main>
   <main class="wrap" id="view-roles" hidden>
-    <header class="hero"><img class="emb" src="" alt="" id="r-emb"><div><h1>Роли</h1><p>Роли и суперспособности</p></div></header>
+    <header class="hero"><img class="emb" src="" alt="" id="r-emb"><div><h1>Роли</h1><p>Описание ролей и скилов</p></div></header>
     <div class="chips" id="r-chips"></div>
     <div id="roles"></div>
   </main>
@@ -552,7 +552,7 @@ function renderProfile() {
   if (p.photo) { const e = $('p-avatar'); e.src = p.photo; e.hidden = false; }
   $('p-sub').textContent = [p.gender, 'огранка: ' + (p.level || 'Сырой камень')].filter(Boolean).join(', ');
   $('nav-admin').hidden = true;
-  $('nav-roles').hidden = true;
+  $('nav-roles').hidden = !p.rolesOpen;
   if (p.isAdmin) $('a-emb').src = $('p-emb').src;
   const bookings = p.bookings.length ? p.bookings.map(b =>
     '<div class="item"><div><div class="t">' + esc(b.game) + '</div><div class="s">' + b.seats + ' ' + plural(b.seats, 'место', 'места', 'мест') +
@@ -831,7 +831,7 @@ async function loadRoles() {
   catch (err) { $('roles').innerHTML = '<div class="empty"><strong>Не загрузилось</strong>' + esc(err.message) + '</div>'; }
 }
 function renderRoles() {
-  if (!RS.list.length) { $('r-chips').innerHTML = ''; $('roles').innerHTML = '<div class="empty"><strong>Скоро здесь будут роли</strong>Описание ролей и суперспособностей появится совсем скоро.</div>'; return; }
+  if (!RS.list.length) { $('r-chips').innerHTML = ''; $('roles').innerHTML = '<div class="empty"><strong>Скоро здесь будут роли</strong>Описание ролей и скилов появится совсем скоро.</div>'; return; }
   const fs = [...new Set(RS.list.map(r => r.format))];
   if (fs.indexOf(RS.f) < 0) RS.f = fs[0];
   $('r-chips').innerHTML = fs.length > 1 ? fs.map(f => '<button class="chip" aria-pressed="' + (f === RS.f) + '" data-rf="' + esc(f) + '">' + esc(f) + '</button>').join('') : '';
@@ -853,6 +853,7 @@ if (!tg || !tg.initData) {
   loadGames();
   loadProfile().then(() => {
     if (state.profile && !state.profile.registered) return showRegistration();
+    if (state.profile && state.profile.rolesOpen && /[?&]view=roles/.test(location.search)) show('roles');
   });
 }
 </script>
