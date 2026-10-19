@@ -244,6 +244,13 @@ const CKEY = 'g8_' + ((tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.i
 function cacheGet(k) { try { return JSON.parse(localStorage.getItem(CKEY + k) || 'null'); } catch (e) { return null; } }
 function cacheSet(k, v) { try { localStorage.setItem(CKEY + k, JSON.stringify(v)); } catch (e) {} }
 
+// разрешение боту писать гостю (нужно тем, кто открыл приложение через «Открыть» без «Старта»)
+function askWrite(force) {
+  if (!tg || !tg.requestWriteAccess || (tg.isVersionAtLeast && !tg.isVersionAtLeast('6.9'))) return;
+  if (!force && cacheGet('wa')) return;
+  try { tg.requestWriteAccess(ok => cacheSet('wa', ok ? 1 : 2)); } catch (e) {}
+}
+
 async function loadGames() {
   const c = cacheGet('games');
   if (c && c.games && !(state.games && state.games.length)) { state.games = c.games; state.requisites = c.requisites || {}; state.waits = c.waits || []; state.invites = c.invites || []; renderGames(); }
@@ -634,7 +641,7 @@ function regForm(p, target, onSaved, editing) {
     }
     if (b.dataset.act === 'save') {
       b.disabled = true; b.textContent = 'Сохраняем…';
-      try { await api('register', v); haptic('success'); await loadProfile(); onSaved(); }
+      try { await api('register', v); haptic('success'); await loadProfile(); onSaved(); if (!editing) askWrite(true); }
       catch (err) { haptic('error'); toast(err.message); b.disabled = false; b.textContent = editing ? 'Сохранить' : 'Сохранить и войти'; }
     }
   };
@@ -833,6 +840,7 @@ if (!tg || !tg.initData) {
   loadGames();
   loadProfile().then(() => {
     if (state.profile && !state.profile.registered) return showRegistration();
+    if (state.profile) askWrite(false);
     if (state.profile && state.profile.rolesOpen && /[?&]view=roles/.test(location.search)) show('roles');
   });
 }
