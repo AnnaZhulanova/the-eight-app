@@ -48,6 +48,10 @@ button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px soli
   background:var(--surface);border:1px solid var(--line);border-radius:16px;backdrop-filter:blur(6px)}
 .game::after{content:"";position:absolute;inset:4px;border:1px solid rgba(216,204,178,.08);border-radius:12px;pointer-events:none}
 .game:active{border-color:var(--line-strong)}
+.game.hw{background:#050505;border-color:rgba(232,137,43,.55);box-shadow:0 0 26px rgba(232,137,43,.16)}
+.game.hw::after{border-color:rgba(232,137,43,.18)}
+.game.hw .day{border-right-color:rgba(232,137,43,.3)}
+.game.hw .day b,.game.hw .g-title{color:#F0A04B}
 .day{text-align:center;border-right:1px solid var(--line);padding-right:14px}
 .day b{display:block;font-family:var(--serif);font-weight:500;font-size:42px;line-height:.95;color:var(--gold)}
 .day span{display:block;font-size:12px;color:var(--muted);margin-top:4px}
@@ -270,7 +274,7 @@ function renderGames() {
     '<div class="g-meta">' + fmt(g.ts, { weekday: 'long', day: 'numeric', month: 'long' }) + ', ' + esc(g.time) + (g.place ? ' · ' + esc(g.place) : '') + '</div>' +
     '<button class="invite-cta" data-accept="' + esc(g.id) + '">Подтвердить приглашение</button></div>').join('') + list.map(g => {
     const seats = g.invite ? ((state.invites || []).indexOf(g.id) >= 0 ? (accepted(g.id) ? 'Участие подтверждено' : 'Вы приглашены · подтвердите участие') : 'По приглашению') : g.open ? 'Осталось ' + g.left + ' ' + plural(g.left, 'место', 'места', 'мест') : (state.waits || []).indexOf(g.id) >= 0 ? 'Вы в листе ожидания' : 'Мест нет';
-    return '<button class="game" data-id="' + esc(g.id) + '">' +
+    return '<button class="game' + (/хэллоуин|хеллоуин|halloween/i.test(g.title) ? ' hw' : '') + '" data-id="' + esc(g.id) + '">' +
       '<div class="day"><b>' + fmt(g.ts, { day: 'numeric' }) + '</b><span>' + fmt(g.ts, { month: 'short' }).replace('.', '') + '<br>' + fmt(g.ts, { weekday: 'short' }) + '</span></div>' +
       '<div><div class="g-title">' + esc(g.title) + '</div>' +
       '<div class="g-meta">' + esc(g.format) + ', ' + esc(g.time) + (g.place ? ', ' + esc(g.place) : '') + '</div>' +
