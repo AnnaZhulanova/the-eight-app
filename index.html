@@ -48,6 +48,11 @@ button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px soli
   background:var(--surface);border:1px solid var(--line);border-radius:16px;backdrop-filter:blur(6px)}
 .game::after{content:"";position:absolute;inset:4px;border:1px solid rgba(216,204,178,.08);border-radius:12px;pointer-events:none}
 .game:active{border-color:var(--line-strong)}
+.g-pl{grid-column:1/-1;margin-top:2px;padding-top:12px;border-top:1px solid var(--line)}
+.g-pl .plist{gap:6px}
+.g-pl .pchip{font-size:12.5px;padding:3px 10px 3px 3px}
+.g-pl .pav{width:22px;height:22px;font-size:11px}
+.g-pl .more{display:inline-flex;align-items:center;font-size:12.5px;color:var(--muted);padding:3px 8px}
 .game.hw{background:#050505;border-color:rgba(232,137,43,.55);box-shadow:0 0 26px rgba(232,137,43,.16)}
 .game.hw::after{border-color:rgba(232,137,43,.18)}
 .game.hw .day{border-right-color:rgba(232,137,43,.3)}
@@ -278,7 +283,8 @@ function renderGames() {
       '<div class="day"><b>' + fmt(g.ts, { day: 'numeric' }) + '</b><span>' + fmt(g.ts, { month: 'short' }).replace('.', '') + '<br>' + fmt(g.ts, { weekday: 'short' }) + '</span></div>' +
       '<div><div class="g-title">' + esc(g.title) + '</div>' +
       '<div class="g-meta">' + esc(g.format) + ', ' + esc(g.time) + (g.place ? ', ' + esc(g.place) : '') + '</div>' +
-      '<div class="g-row"><span class="seats' + (g.open || g.invite ? '' : ' out') + '">' + seats + '</span><span>' + (g.invite ? '' : g.tiers ? 'от ' + amount(Math.min.apply(null, g.tiers.map(t => t.IDR).filter(Boolean)), 'IDR') : g.prices && g.prices.IDR.f ? 'от ' + amount(Math.min(g.prices.IDR.f, g.prices.IDR.m || g.prices.IDR.f), 'IDR') : '') + '</span></div></div></button>';
+      '<div class="g-row"><span class="seats' + (g.open || g.invite ? '' : ' out') + '">' + seats + '</span><span>' + (g.invite ? '' : g.tiers ? 'от ' + amount(Math.min.apply(null, g.tiers.map(t => t.IDR).filter(Boolean)), 'IDR') : g.prices && g.prices.IDR.f ? 'от ' + amount(Math.min(g.prices.IDR.f, g.prices.IDR.m || g.prices.IDR.f), 'IDR') : '') + '</span></div></div>' +
+      cardPlayers(g.players) + '</button>';
   }).join('');
 }
 
@@ -425,6 +431,11 @@ function playersHtml(list) {
     '<span class="pchip' + (p.confirmed ? '' : ' wait') + '">' +
     (p.photo ? '<img class="pav" alt="" src="' + esc(p.photo) + '">' : '<span class="pav">' + esc(p.nick.charAt(0).toUpperCase()) + '</span>') +
     esc(p.nick) + (p.plus ? ' <em>+' + p.plus + '</em>' : '') + '</span>').join('') + '</div>';
+}
+function cardPlayers(list) {
+  if (!list || !list.length) return '';
+  const MAX = 10, shown = list.slice(0, MAX), rest = list.slice(MAX).reduce((s, p) => s + 1 + p.plus, 0);
+  return '<div class="g-pl">' + playersHtml(shown).replace('</div>', (rest ? '<span class="more">+' + rest + '</span>' : '') + '</div>') + '</div>';
 }
 function playersCount(list) { return list ? list.reduce((s, p) => s + 1 + p.plus, 0) : 0; }
 
