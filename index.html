@@ -342,7 +342,7 @@ function openBooking(g) {
       const r = await api('book', { gameId: g.id, girls: f.girls, guys: f.guys, tiers: tiers ? tiers.map((t, i) => f['t' + i]) : null, pay: f.pay, points: 0, gift: !!f.gift, comment: f.comment, receipt });
       haptic('success');
       active = false;
-      showBooked(r);
+      showBooked(Object.assign({ gid: g.id }, r));
       loadGames(); loadProfile();
     } catch (err) { haptic('error'); if (/профиль/.test(err.message)) { closeSheet(); return showRegistration(); } toast(err.message); btn.disabled = false; btn.textContent = label; }
   }
@@ -457,12 +457,20 @@ function openPlayers(gid, title) {
   api('players', { gameId: gid }).then(r => { list = r.players; draw(); }).catch(err => { list = []; draw(); toast(err.message); });
 }
 
+// файл события .ics с сервера: iPhone предложит добавить в Календарь, Android откроет календарь телефона
+function addToCalendar(gid) {
+  tap();
+  const url = API + '?ics=' + encodeURIComponent(gid);
+  if (tg && tg.openLink) tg.openLink(url, { try_instant_view: false }); else window.open(url, '_blank');
+}
+
 function showBooked(r) {
   const head = '<div class="done"><img class="emb" alt="" src="' + $('p-emb').src + '">';
   if (!r.needReceipt) {
     $('sheet-body').innerHTML = head + '<h3>' + (r.receiptSent ? 'Заявка отправлена' : 'Бронь отправлена') + '</h3><p class="meta">Номер брони ' + esc(r.id) +
-      (r.receiptSent ? '. Мы проверим оплату и подтвердим бронь в чате с ботом.' : '. Мы подтвердим её в чате с ботом.') + '</p></div><button class="cta" data-act="close">Готово</button>';
-    $('sheet-body').onclick = e => { if (e.target.closest('[data-act=close]')) closeSheet(); };
+      (r.receiptSent ? '. Мы проверим оплату и подтвердим бронь в чате с ботом.' : '. Мы подтвердим её в чате с ботом.') + '</p></div>' +
+      (r.gid ? '<button class="cta ghost" data-cal="' + esc(r.gid) + '">📅 Добавить в календарь</button>' : '') + '<button class="cta" data-act="close">Готово</button>';
+    $('sheet-body').onclick = e => { const c = e.target.closest('[data-cal]'); if (c) return addToCalendar(c.dataset.cal); if (e.target.closest('[data-act=close]')) closeSheet(); };
     return;
   }
   $('sheet-body').innerHTML = head + '<h3>Осталось оплатить</h3><p class="meta">Бронь ' + esc(r.id) + ', к оплате <b style="color:var(--gold)">' +
@@ -579,6 +587,7 @@ function renderProfile() {
     (b.needReceipt && !b.receipt ? '<button class="link" data-receipt="' + esc(b.id) + '" style="margin-right:14px">Загрузить чек</button>' : '') +
     (b.needReceipt && b.receipt ? '<div class="check-ok">Чек отправлен, ждём подтверждения</div>' : '') +
     (b.needReceipt && !b.receipt ? '<div class="s">Место не закреплено, пока нет чека</div>' : '') +
+    (b.gid && (b.status === 'Ожидает' || b.status === 'Подтверждена') ? '<button class="link" data-cal="' + esc(b.gid) + '" style="margin-right:14px">📅 В календарь</button>' : '') +
     (b.status === 'Ожидает' || b.status === 'Подтверждена' ? '<button class="link" data-cancel="' + esc(b.id) + '">Отменить бронь</button>' : '') +
     '</div><span class="pill ' + (b.needReceipt && !b.receipt ? 'wait' : PILL[b.status] || '') + '">' + esc(b.needReceipt && !b.receipt ? 'Ждём чек' : b.status) + '</span></div>').join('')
     : '<p class="note">Броней пока нет. Выберите игру в афише.</p>';
@@ -608,6 +617,8 @@ $('profile').addEventListener('click', e => {
   if (qa) { tap(); return qa.dataset.qa === 'rating' ? openRating() : qa.dataset.qa === 'treasury' ? openTreasury() : openTransfer(); }
   const pl = e.target.closest('[data-players]');
   if (pl) return openPlayers(pl.dataset.players, pl.dataset.title);
+  const cal = e.target.closest('[data-cal]');
+  if (cal) return addToCalendar(cal.dataset.cal);
   const rc = e.target.closest('[data-receipt]');
   if (rc) return pickReceipt(rc.dataset.receipt, rc);
   const b = e.target.closest('[data-cancel]'); if (!b) return;
