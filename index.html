@@ -258,7 +258,7 @@ function cacheSet(k, v) { try { localStorage.setItem(CKEY + k, JSON.stringify(v)
 async function loadGames() {
   const c = cacheGet('games');
   if (c && c.games && !(state.games && state.games.length)) { state.games = c.games; state.requisites = c.requisites || {}; state.waits = c.waits || []; state.invites = c.invites || []; renderGames(); }
-  try { const r = await api('games'); cacheSet('games', r); state.games = r.games; state.requisites = r.requisites || {}; state.waits = r.waits || []; state.invites = r.invites || []; renderGames(); }
+  try { const r = await api('games'); cacheSet('games', r); state.games = r.games; if (state.profile) renderProfile(); state.requisites = r.requisites || {}; state.waits = r.waits || []; state.invites = r.invites || []; renderGames(); }
   catch (e) { $('games').innerHTML = '<div class="empty"><strong>Афиша не загрузилась</strong>' + esc(e.message) + '</div>'; }
 }
 
@@ -464,6 +464,9 @@ function addToCalendar(gid) {
   if (tg && tg.openLink) tg.openLink(url, { try_instant_view: false }); else window.open(url, '_blank');
 }
 
+// игра ещё впереди: она есть в текущей афише (прошедшие игры афиша не показывает)
+function upcoming(gid) { return !!gid && (state.games || []).some(g => g.id === gid && g.ts > Date.now()); }
+
 function showBooked(r) {
   const head = '<div class="done"><img class="emb" alt="" src="' + $('p-emb').src + '">';
   if (!r.needReceipt) {
@@ -587,8 +590,8 @@ function renderProfile() {
     (b.needReceipt && !b.receipt ? '<button class="link" data-receipt="' + esc(b.id) + '" style="margin-right:14px">Загрузить чек</button>' : '') +
     (b.needReceipt && b.receipt ? '<div class="check-ok">Чек отправлен, ждём подтверждения</div>' : '') +
     (b.needReceipt && !b.receipt ? '<div class="s">Место не закреплено, пока нет чека</div>' : '') +
-    (b.gid && (b.status === 'Ожидает' || b.status === 'Подтверждена') ? '<button class="link" data-cal="' + esc(b.gid) + '" style="margin-right:14px">📅 В календарь</button>' : '') +
-    (b.status === 'Ожидает' || b.status === 'Подтверждена' ? '<button class="link" data-cancel="' + esc(b.id) + '">Отменить бронь</button>' : '') +
+    (b.gid && upcoming(b.gid) && (b.status === 'Ожидает' || b.status === 'Подтверждена') ? '<button class="link" data-cal="' + esc(b.gid) + '" style="margin-right:14px">📅 В календарь</button>' : '') +
+    (upcoming(b.gid) && (b.status === 'Ожидает' || b.status === 'Подтверждена') ? '<button class="link" data-cancel="' + esc(b.id) + '">Отменить бронь</button>' : '') +
     '</div><span class="pill ' + (b.needReceipt && !b.receipt ? 'wait' : PILL[b.status] || '') + '">' + esc(b.needReceipt && !b.receipt ? 'Ждём чек' : b.status) + '</span></div>').join('')
     : '<p class="note">Броней пока нет. Выберите игру в афише.</p>';
   const history = p.history.length ? p.history.map(h =>
