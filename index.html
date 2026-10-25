@@ -220,7 +220,7 @@ textarea{width:100%;min-height:64px;background:rgba(2,26,22,.7);border:1px solid
 const API = 'https://script.google.com/macros/s/AKfycbyQcYZznGgb7SjKDjIz4qF5_agTgUKfLoIqB6QOiYpZQJ285NA19b3bafoTVzp_I_w/exec';
 const TZ = 'Asia/Makassar';
 const tg = window.Telegram && Telegram.WebApp;
-const state = { games: [], profile: null, filter: 'Все' };
+const state = { games: [], profile: null, filter: 'Городская мафия' };
 
 if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor('#04201B'); tg.setBackgroundColor('#04201B'); } catch (e) {} }
 const haptic = t => { try { tg.HapticFeedback.notificationOccurred(t); } catch (e) {} };
@@ -268,10 +268,12 @@ function accepted(gid) {
 }
 
 function renderGames() {
-  const formats = ['Все', ...new Set(state.games.map(g => g.format).filter(Boolean))];
-  if (formats.indexOf(state.filter) < 0) state.filter = 'Все';
-  $('chips').innerHTML = formats.length > 2 ? formats.map(f => '<button class="chip" aria-pressed="' + (f === state.filter) + '" data-f="' + esc(f) + '">' + esc(f) + '</button>').join('') : '';
-  const list = state.games.filter(g => state.filter === 'Все' || g.format === state.filter);
+  const have = [...new Set(state.games.map(g => g.format).filter(Boolean))];
+  const ORDER = ['Городская мафия', 'Спортивная мафия'];
+  const formats = ORDER.filter(f => have.indexOf(f) >= 0).concat(have.filter(f => ORDER.indexOf(f) < 0));
+  if (formats.indexOf(state.filter) < 0) state.filter = formats[0] || '';
+  $('chips').innerHTML = formats.length > 1 ? formats.map(f => '<button class="chip" aria-pressed="' + (f === state.filter) + '" data-f="' + esc(f) + '">' + esc(f) + '</button>').join('') : '';
+  const list = state.games.filter(g => !state.filter || g.format === state.filter);
   if (!list.length) { $('games').innerHTML = '<div class="empty"><strong>Скоро новые игры</strong>Расписание появится здесь, а бот напишет, когда откроется запись.</div>'; return; }
   const pend = state.profile && state.profile.registered
     ? state.games.filter(g => g.invite && (state.invites || []).indexOf(g.id) >= 0 && !accepted(g.id)) : [];
