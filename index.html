@@ -269,7 +269,7 @@ function accepted(gid) {
 
 function renderGames() {
   const have = [...new Set(state.games.map(g => g.format).filter(Boolean))];
-  const ORDER = ['Городская мафия', 'Спортивная мафия'];
+  const ORDER = ['Городская мафия', 'Детектив', 'Спортивная мафия'];
   const formats = ORDER.filter(f => have.indexOf(f) >= 0).concat(have.filter(f => ORDER.indexOf(f) < 0));
   if (formats.indexOf(state.filter) < 0) state.filter = formats[0] || '';
   $('chips').innerHTML = formats.length > 1 ? formats.map(f => '<button class="chip" aria-pressed="' + (f === state.filter) + '" data-f="' + esc(f) + '">' + esc(f) + '</button>').join('') : '';
