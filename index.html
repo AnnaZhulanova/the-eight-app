@@ -41,6 +41,10 @@ button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px soli
 .chips::-webkit-scrollbar{display:none}
 .chip{flex:none;padding:7px 15px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:14px;background:rgba(2,26,22,.4)}
 .chip[aria-pressed=true]{border-color:var(--gold);color:var(--gold)}
+.cdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:1px}
+.game:not(.hw){border-left:3px solid var(--fc,var(--line))}
+.game:not(.hw) .day b{color:var(--fc,var(--gold))}
+.g-fmt{color:var(--fc,inherit)}
 
 /* афиша: карточки как пригласительные */
 #games{display:grid;gap:12px}
@@ -220,7 +224,7 @@ textarea{width:100%;min-height:64px;background:rgba(2,26,22,.7);border:1px solid
 const API = 'https://script.google.com/macros/s/AKfycbyQcYZznGgb7SjKDjIz4qF5_agTgUKfLoIqB6QOiYpZQJ285NA19b3bafoTVzp_I_w/exec';
 const TZ = 'Asia/Makassar';
 const tg = window.Telegram && Telegram.WebApp;
-const state = { games: [], profile: null, filter: 'Городская мафия' };
+const state = { games: [], profile: null, filter: 'Все' };
 
 if (tg) { tg.ready(); tg.expand(); try { tg.setHeaderColor('#04201B'); tg.setBackgroundColor('#04201B'); } catch (e) {} }
 const haptic = t => { try { tg.HapticFeedback.notificationOccurred(t); } catch (e) {} };
@@ -267,13 +271,17 @@ function accepted(gid) {
   return !!(p && p.bookings && p.bookings.some(b => b.gid === gid && ['Ожидает', 'Подтверждена', 'Пришёл'].indexOf(b.status) >= 0));
 }
 
+// цвет каждого игрового направления: полоса слева, дата и метка формата на карточке, точка на вкладке
+const FCOL = { 'Городская мафия': '#C9A96E', 'Детектив': '#C9707A', 'Спортивная мафия': '#5FB3C4', 'Убежище': '#A9BC6C' };
+function fcol(f) { return FCOL[f] || '#8FA89E'; }
+
 function renderGames() {
   const have = [...new Set(state.games.map(g => g.format).filter(Boolean))];
-  const ORDER = ['Городская мафия', 'Детектив', 'Спортивная мафия'];
-  const formats = ORDER.filter(f => have.indexOf(f) >= 0).concat(have.filter(f => ORDER.indexOf(f) < 0));
-  if (formats.indexOf(state.filter) < 0) state.filter = formats[0] || '';
-  $('chips').innerHTML = formats.length > 1 ? formats.map(f => '<button class="chip" aria-pressed="' + (f === state.filter) + '" data-f="' + esc(f) + '">' + esc(f) + '</button>').join('') : '';
-  const list = state.games.filter(g => !state.filter || g.format === state.filter);
+  const ORDER = ['Городская мафия', 'Детектив', 'Спортивная мафия', 'Убежище'];
+  const formats = ['Все'].concat(ORDER.filter(f => have.indexOf(f) >= 0), have.filter(f => ORDER.indexOf(f) < 0));
+  if (formats.indexOf(state.filter) < 0) state.filter = 'Все';
+  $('chips').innerHTML = formats.length > 2 ? formats.map(f => '<button class="chip" aria-pressed="' + (f === state.filter) + '" data-f="' + esc(f) + '">' + (f === 'Все' ? '' : '<span class="cdot" style="background:' + fcol(f) + '"></span>') + esc(f) + '</button>').join('') : '';
+  const list = state.games.filter(g => state.filter === 'Все' || g.format === state.filter);
   if (!list.length) { $('games').innerHTML = '<div class="empty"><strong>Скоро новые игры</strong>Расписание появится здесь, а бот напишет, когда откроется запись.</div>'; return; }
   const pend = state.profile && state.profile.registered
     ? state.games.filter(g => g.invite && (state.invites || []).indexOf(g.id) >= 0 && !accepted(g.id)) : [];
@@ -281,10 +289,10 @@ function renderGames() {
     '<div class="g-meta">' + fmt(g.ts, { weekday: 'long', day: 'numeric', month: 'long' }) + ', ' + esc(g.time) + (g.place ? ' · ' + esc(g.place) : '') + '</div>' +
     '<button class="invite-cta" data-accept="' + esc(g.id) + '">Подтвердить приглашение</button></div>').join('') + list.map(g => {
     const seats = g.invite ? ((state.invites || []).indexOf(g.id) >= 0 ? (accepted(g.id) ? 'Участие подтверждено' : 'Вы приглашены · подтвердите участие') : 'По приглашению') : g.open ? 'Осталось ' + g.left + ' ' + plural(g.left, 'место', 'места', 'мест') : (state.waits || []).indexOf(g.id) >= 0 ? 'Вы в листе ожидания' : 'Мест нет';
-    return '<button class="game' + (/хэллоуин|хеллоуин|halloween/i.test(g.title) ? ' hw' : '') + '" data-id="' + esc(g.id) + '">' +
+    return '<button class="game' + (/хэллоуин|хеллоуин|halloween/i.test(g.title) ? ' hw' : '') + '" style="--fc:' + fcol(g.format) + '" data-id="' + esc(g.id) + '">' +
       '<div class="day"><b>' + fmt(g.ts, { day: 'numeric' }) + '</b><span>' + fmt(g.ts, { month: 'short' }).replace('.', '') + '<br>' + fmt(g.ts, { weekday: 'short' }) + '</span></div>' +
       '<div><div class="g-title">' + esc(g.title) + '</div>' +
-      '<div class="g-meta">' + esc(g.format) + ', ' + esc(g.time) + (g.place ? ', ' + esc(g.place) : '') + '</div>' +
+      '<div class="g-meta"><span class="g-fmt">' + esc(g.format) + '</span>, ' + esc(g.time) + (g.place ? ', ' + esc(g.place) : '') + '</div>' +
       '<div class="g-row"><span class="seats' + (g.open || g.invite ? '' : ' out') + '">' + seats + '</span><span>' + (g.invite ? '' : g.tiers ? 'от ' + amount(Math.min.apply(null, g.tiers.map(t => t.IDR).filter(Boolean)), 'IDR') : g.prices && g.prices.IDR.f ? 'от ' + amount(Math.min(g.prices.IDR.f, g.prices.IDR.m || g.prices.IDR.f), 'IDR') : '') + '</span></div></div>' +
       cardPlayers(g.players) + '</button>';
   }).join('');
