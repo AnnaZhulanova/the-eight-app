@@ -508,7 +508,8 @@ function reqHtml(text) {
 }
 document.addEventListener('click', e => {
   const m = e.target.closest('[data-map]'); if (!m) return;
-  const url = /huge/i.test(m.dataset.map) ? 'https://maps.app.goo.gl/1SdgQxZxkBZKJPZRA'
+  const url = /flowers/i.test(m.dataset.map) ? 'https://maps.app.goo.gl/UjSHuPSftSDTEru3A'
+    : /huge/i.test(m.dataset.map) ? 'https://maps.app.goo.gl/1SdgQxZxkBZKJPZRA'
     : 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(m.dataset.map + ', Bali');
   if (tg && tg.openLink) tg.openLink(url); else window.open(url, '_blank');
 });
